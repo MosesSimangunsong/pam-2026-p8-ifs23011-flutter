@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'dart:typed_data'; // Tambahkan untuk Uint8List
 import '../../core/constants/route_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../shared/widgets/app_snackbar.dart';
@@ -20,6 +21,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // ── State untuk Preview Foto ────────
+  Uint8List? _previewBytes;
+
   // ── Update Profile State ────────────
   final _profileFormKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
@@ -64,9 +68,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (picked == null || !mounted) return;
 
       final bytes = await picked.readAsBytes();
+
+      // Menampilkan preview gambar segera setelah dipilih
+      setState(() {
+        _previewBytes = bytes;
+      });
+
+      // Proses Upload
       final success = await context.read<AuthProvider>().updatePhoto(
         imageFile:     kIsWeb ? null : File(picked.path),
-        imageBytes:    bytes,
+        imageBytes:    bytes, // Menggunakan Uint8List untuk upload multi-platform
         imageFilename: picked.name,
       );
 
@@ -227,10 +238,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       CircleAvatar(
                         radius: 54,
                         backgroundColor: colorScheme.primaryContainer,
-                        backgroundImage: user?.urlPhoto != null
+                        // Menampilkan preview jika ada _previewBytes, jika tidak gunakan urlPhoto
+                        backgroundImage: _previewBytes != null
+                            ? MemoryImage(_previewBytes!)
+                            : (user?.urlPhoto != null
                             ? NetworkImage(user!.urlPhoto!)
-                            : null,
-                        child: user?.urlPhoto == null
+                            : null) as ImageProvider?,
+                        child: _previewBytes == null && user?.urlPhoto == null
                             ? Text(
                           (user?.name.isNotEmpty == true)
                               ? user!.name[0].toUpperCase()

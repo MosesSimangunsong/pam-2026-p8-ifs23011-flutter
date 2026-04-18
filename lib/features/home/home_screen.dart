@@ -35,6 +35,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final themeProvider = context.watch<ThemeProvider>();
     final isDark       = themeProvider.isDark;
 
+    // Menghitung persentase progres
+    final double progressPercentage = provider.totalTodos == 0
+        ? 0.0
+        : provider.doneTodos / provider.totalTodos;
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -94,6 +99,47 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: Icons.pending_rounded,
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Progres Todo (Fitur Baru) ──
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Progres Penyelesaian',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${(progressPercentage * 100).toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: progressPercentage,
+                        minHeight: 10,
+                        backgroundColor: colorScheme.primary.withOpacity(0.1),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 24),
 

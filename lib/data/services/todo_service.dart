@@ -22,14 +22,25 @@ class TodoService {
   };
 
   // ─────────────────────────────────────────────
-  // GET /todos?search=
+  // GET /todos?search=&page=&perPage=
   // ─────────────────────────────────────────────
   Future<ApiResponse<List<TodoModel>>> getTodos({
     required String authToken,
     String search = '',
+    int page = 1,        // Tambahan untuk paginasi
+    int perPage = 10,    // Tambahan untuk paginasi
   }) async {
+    // Siapkan query parameters
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'perPage': perPage.toString(),
+    };
+    if (search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
+
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.todos}')
-        .replace(queryParameters: search.isNotEmpty ? {'search': search} : null);
+        .replace(queryParameters: queryParams);
 
     final response = await _client.get(uri, headers: _authHeader(authToken));
     final body = jsonDecode(response.body) as Map<String, dynamic>;

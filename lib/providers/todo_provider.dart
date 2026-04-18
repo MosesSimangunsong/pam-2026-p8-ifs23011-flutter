@@ -21,10 +21,19 @@ class TodoProvider extends ChangeNotifier {
   String _errorMessage = '';
   String _searchQuery = '';
 
+  // ── State Paginasi ───────────────────────────
+  int _page = 1;
+  final int _perPage = 10;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+
   // ── Getters ──────────────────────────────────
   TodoStatus get status       => _status;
   TodoModel? get selectedTodo => _selectedTodo;
   String get errorMessage     => _errorMessage;
+
+  bool get hasMore       => _hasMore;
+  bool get isLoadingMore => _isLoadingMore;
 
   List<TodoModel> get todos {
     if (_searchQuery.isEmpty) return List.unmodifiable(_todos);
@@ -38,17 +47,89 @@ class TodoProvider extends ChangeNotifier {
   int get doneTodos    => _todos.where((t) => t.isDone).length;
   int get pendingTodos => _todos.where((t) => !t.isDone).length;
 
-  // ── Load All Todos ────────────────────────────
-  Future<void> loadTodos({required String authToken}) async {
-    _setStatus(TodoStatus.loading);
-    final result = await _repository.getTodos(authToken: authToken);
+  // ── Load All Todos (Dengan Refresh) ───────────
+  Future<void> loadTodos({required String authToken, bool isRefresh = true}) async {
+    if (isRefresh) {
+      _page = 1;
+      _hasMore = true;
+      _setStatus(TodoStatus.loading);
+    }
+
+    final result = await _repository.getTodos(
+      authToken: authToken,
+      page: _page,
+      perPage: _perPage,
+    );
+
     if (result.success && result.data != null) {
-      _todos = result.data!;
+      if (isRefresh) {
+        _todos = result.data!;
+      } else {
+        _todos.addAll(result.data!);
+      }
+      // Cek apakah data yang diterima kurang dari perPage (berarti sudah di halaman terakhir)
+      _hasMore = result.data!.length == _perPage;
       _setStatus(TodoStatus.success);
     } else {
       _errorMessage = result.message;
       _setStatus(TodoStatus.error);
     }
+  }
+
+  // ── Load More Todos (Untuk Paginasi) ──────────
+  Future<void> loadMoreTodos({required String authToken}) async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
+    _page++;
+    final result = await _repository.getTodos(
+      authToken: authToken,
+      page: _page,
+      perPage: _perPage,
+    );
+
+    if (result.success && result.data != null) {
+      _todos.addAll(result.data!);
+      _hasMore = result.data!.length == _perPage;
+    } else {
+      _page--; // Kembalikan nomor page jika request gagal
+      _errorMessage = result.message;
+    }
+
+    _isLoadingMore = false;
+    notifyListeners();
+  }
+
+  // ── Create Todo ───────────────────────────────
+  Future<bool> addTodo({
+    required String authToken,
+    required String title,
+    required String description,
+  }) async {
+    _setStatus(TodoStatus.loading);
+    final result = await _repository.createTodo(
+      authToken:   authToken,
+      title:       title,
+      description: description,
+    );
+    if (result.success) {
+      // Reset ke halaman pertama agar data baru muncul di atas
+      _page = 1;
+      final listResult = await _repository.getTodos(
+        authToken: authToken, page: _page, perPage: _perPage,
+      );
+      if (listResult.success && listResult.data != null) {
+        _todos = listResult.data!;
+        _hasMore = listResult.data!.length == _perPage;
+      }
+      _setStatus(TodoStatus.success);
+      return true;
+    }
+    _errorMessage = result.message;
+    _setStatus(TodoStatus.error);
+    return false;
   }
 
   // ── Load Single Todo ──────────────────────────
@@ -68,31 +149,6 @@ class TodoProvider extends ChangeNotifier {
     }
   }
 
-  // ── Create Todo ───────────────────────────────
-  Future<bool> addTodo({
-    required String authToken,
-    required String title,
-    required String description,
-  }) async {
-    _setStatus(TodoStatus.loading);
-    final result = await _repository.createTodo(
-      authToken:   authToken,
-      title:       title,
-      description: description,
-    );
-    if (result.success) {
-      final listResult = await _repository.getTodos(authToken: authToken);
-      if (listResult.success && listResult.data != null) {
-        _todos = listResult.data!;
-      }
-      _setStatus(TodoStatus.success);
-      return true;
-    }
-    _errorMessage = result.message;
-    _setStatus(TodoStatus.error);
-    return false;
-  }
-
   // ── Update Todo ───────────────────────────────
   Future<bool> editTodo({
     required String authToken,
@@ -110,10 +166,11 @@ class TodoProvider extends ChangeNotifier {
       isDone:      isDone,
     );
     if (result.success) {
-      // Fetch keduanya dulu, baru notify sekali
+      // Refresh list halaman 1
+      _page = 1;
       final results = await Future.wait([
         _repository.getTodoById(authToken: authToken, todoId: todoId),
-        _repository.getTodos(authToken: authToken),
+        _repository.getTodos(authToken: authToken, page: _page, perPage: _perPage),
       ]);
 
       final detailResult = results[0];
@@ -124,9 +181,9 @@ class TodoProvider extends ChangeNotifier {
       }
       if (listResult.success && listResult.data != null) {
         _todos = listResult.data as List<TodoModel>;
+        _hasMore = _todos.length == _perPage;
       }
 
-      // Notify hanya sekali setelah semua data siap
       _setStatus(TodoStatus.success);
       return true;
     }
@@ -152,10 +209,10 @@ class TodoProvider extends ChangeNotifier {
       imageFilename: imageFilename,
     );
     if (result.success) {
-      // Fetch keduanya dulu, baru notify sekali
+      _page = 1;
       final results = await Future.wait([
         _repository.getTodoById(authToken: authToken, todoId: todoId),
-        _repository.getTodos(authToken: authToken),
+        _repository.getTodos(authToken: authToken, page: _page, perPage: _perPage),
       ]);
 
       final detailResult = results[0];
@@ -166,9 +223,9 @@ class TodoProvider extends ChangeNotifier {
       }
       if (listResult.success && listResult.data != null) {
         _todos = listResult.data as List<TodoModel>;
+        _hasMore = _todos.length == _perPage;
       }
 
-      // Notify hanya sekali setelah semua data siap
       _setStatus(TodoStatus.success);
       return true;
     }
@@ -186,7 +243,6 @@ class TodoProvider extends ChangeNotifier {
     final result = await _repository.deleteTodo(
         authToken: authToken, todoId: todoId);
     if (result.success) {
-      // Hapus dari list lokal langsung tanpa fetch ulang
       _todos.removeWhere((t) => t.id == todoId);
       _selectedTodo = null;
       _setStatus(TodoStatus.success);

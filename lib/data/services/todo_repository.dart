@@ -12,12 +12,20 @@ class TodoRepository {
 
   final TodoService _service;
 
+  // ── Modifikasi: Tambahkan parameter page dan perPage ──
   Future<ApiResponse<List<TodoModel>>> getTodos({
     required String authToken,
     String search = '',
+    int page = 1,
+    int perPage = 10,
   }) async {
     try {
-      return await _service.getTodos(authToken: authToken, search: search);
+      return await _service.getTodos(
+        authToken: authToken,
+        search: search,
+        page: page,
+        perPage: perPage,
+      );
     } catch (e) {
       return ApiResponse(success: false, message: 'Terjadi kesalahan jaringan: $e');
     }
