@@ -149,7 +149,7 @@ class TodoProvider extends ChangeNotifier {
     }
   }
 
-  // ── Update Todo ───────────────────────────────
+// ── Update Todo ───────────────────────────────
   Future<bool> editTodo({
     required String authToken,
     required String todoId,
@@ -159,28 +159,30 @@ class TodoProvider extends ChangeNotifier {
   }) async {
     _setStatus(TodoStatus.loading);
     final result = await _repository.updateTodo(
-      authToken:   authToken,
-      todoId:      todoId,
-      title:       title,
+      authToken: authToken,
+      todoId: todoId,
+      title: title,
       description: description,
-      isDone:      isDone,
+      isDone: isDone,
     );
     if (result.success) {
-      // Refresh list halaman 1
       _page = 1;
-      final results = await Future.wait([
-        _repository.getTodoById(authToken: authToken, todoId: todoId),
-        _repository.getTodos(authToken: authToken, page: _page, perPage: _perPage),
-      ]);
-
-      final detailResult = results[0];
-      final listResult   = results[1];
+      // Gunakan tipe eksplisit untuk menghindari unsafe cast dari Future.wait
+      final detailResult = await _repository.getTodoById(
+        authToken: authToken,
+        todoId: todoId,
+      );
+      final listResult = await _repository.getTodos(
+        authToken: authToken,
+        page: _page,
+        perPage: _perPage,
+      );
 
       if (detailResult.success && detailResult.data != null) {
-        _selectedTodo = detailResult.data as TodoModel;
+        _selectedTodo = detailResult.data;
       }
       if (listResult.success && listResult.data != null) {
-        _todos = listResult.data as List<TodoModel>;
+        _todos = listResult.data!;
         _hasMore = _todos.length == _perPage;
       }
 
@@ -188,11 +190,13 @@ class TodoProvider extends ChangeNotifier {
       return true;
     }
     _errorMessage = result.message;
-    _setStatus(TodoStatus.error);
+    // PERBAIKAN: Kembalikan ke 'success' bukan 'error' agar list tidak hilang.
+    // Error akan ditampilkan melalui SnackBar di UI layer.
+    _setStatus(TodoStatus.success);
     return false;
   }
 
-  // ── Update Cover ──────────────────────────────
+// ── Update Cover ──────────────────────────────
   Future<bool> updateCover({
     required String authToken,
     required String todoId,
@@ -202,27 +206,29 @@ class TodoProvider extends ChangeNotifier {
   }) async {
     _setStatus(TodoStatus.loading);
     final result = await _repository.updateTodoCover(
-      authToken:     authToken,
-      todoId:        todoId,
-      imageFile:     imageFile,
-      imageBytes:    imageBytes,
+      authToken: authToken,
+      todoId: todoId,
+      imageFile: imageFile,
+      imageBytes: imageBytes,
       imageFilename: imageFilename,
     );
     if (result.success) {
       _page = 1;
-      final results = await Future.wait([
-        _repository.getTodoById(authToken: authToken, todoId: todoId),
-        _repository.getTodos(authToken: authToken, page: _page, perPage: _perPage),
-      ]);
-
-      final detailResult = results[0];
-      final listResult   = results[1];
+      final detailResult = await _repository.getTodoById(
+        authToken: authToken,
+        todoId: todoId,
+      );
+      final listResult = await _repository.getTodos(
+        authToken: authToken,
+        page: _page,
+        perPage: _perPage,
+      );
 
       if (detailResult.success && detailResult.data != null) {
-        _selectedTodo = detailResult.data as TodoModel;
+        _selectedTodo = detailResult.data;
       }
       if (listResult.success && listResult.data != null) {
-        _todos = listResult.data as List<TodoModel>;
+        _todos = listResult.data!;
         _hasMore = _todos.length == _perPage;
       }
 
@@ -230,18 +236,21 @@ class TodoProvider extends ChangeNotifier {
       return true;
     }
     _errorMessage = result.message;
-    _setStatus(TodoStatus.error);
+    // PERBAIKAN: Kembalikan ke 'success' bukan 'error'.
+    _setStatus(TodoStatus.success);
     return false;
   }
 
-  // ── Delete Todo ───────────────────────────────
+// ── Delete Todo ───────────────────────────────
   Future<bool> removeTodo({
     required String authToken,
     required String todoId,
   }) async {
     _setStatus(TodoStatus.loading);
     final result = await _repository.deleteTodo(
-        authToken: authToken, todoId: todoId);
+      authToken: authToken,
+      todoId: todoId,
+    );
     if (result.success) {
       _todos.removeWhere((t) => t.id == todoId);
       _selectedTodo = null;
@@ -249,7 +258,8 @@ class TodoProvider extends ChangeNotifier {
       return true;
     }
     _errorMessage = result.message;
-    _setStatus(TodoStatus.error);
+    // PERBAIKAN: Kembalikan ke 'success' bukan 'error'.
+    _setStatus(TodoStatus.success);
     return false;
   }
 

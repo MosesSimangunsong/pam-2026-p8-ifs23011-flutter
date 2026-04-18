@@ -10,6 +10,7 @@ import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/error_widget.dart';
 import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/top_app_bar_widget.dart';
+import '../../data/models/todo_model.dart';
 
 class TodosScreen extends StatefulWidget {
   const TodosScreen({super.key});
@@ -40,12 +41,15 @@ class _TodosScreenState extends State<TodosScreen> {
 
   // ── Fungsi untuk mengecek posisi scroll ──
   void _onScroll() {
-    // Jika scroll sudah mendekati posisi paling bawah (selisih 50 pixel)
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 50) {
+    // PERBAIKAN: Cek hasClients terlebih dahulu untuk menghindari StateError
+    // jika controller belum atau sudah tidak ter-attach ke scroll view manapun.
+    if (!_scrollController.hasClients) return;
+
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 50) {
       final token = context.read<AuthProvider>().authToken;
       final provider = context.read<TodoProvider>();
 
-      // Jika masih ada data (hasMore) dan tidak sedang loading, panggil loadMoreTodos
       if (token != null && provider.hasMore && !provider.isLoadingMore) {
         provider.loadMoreTodos(authToken: token);
       }
@@ -192,7 +196,7 @@ class _TodoCard extends StatelessWidget {
     required this.onToggle,
   });
 
-  final todo;
+  final TodoModel todo; // ← PERBAIKAN: Anotasi tipe eksplisit
   final VoidCallback onTap;
   final VoidCallback onToggle;
 

@@ -12,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/top_app_bar_widget.dart';
+import '../../data/models/user_model.dart'; // Pastikan import UserModel ada
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -201,6 +202,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // ── Helper Method untuk Inisial Nama ──
+  Widget _buildInitial(UserModel? user, ColorScheme colorScheme) {
+    return Center(
+      child: Text(
+        (user?.name.isNotEmpty == true) ? user!.name[0].toUpperCase() : '?',
+        style: TextStyle(
+          fontSize: 36,
+          color: colorScheme.primary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider    = context.watch<AuthProvider>();
@@ -235,26 +250,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: _pickPhoto,
                   child: Stack(
                     children: [
+                      // PERBAIKAN: Menggunakan Image.memory dengan ClipOval
                       CircleAvatar(
                         radius: 54,
                         backgroundColor: colorScheme.primaryContainer,
-                        // Menampilkan preview jika ada _previewBytes, jika tidak gunakan urlPhoto
-                        backgroundImage: _previewBytes != null
-                            ? MemoryImage(_previewBytes!)
-                            : (user?.urlPhoto != null
-                            ? NetworkImage(user!.urlPhoto!)
-                            : null) as ImageProvider?,
-                        child: _previewBytes == null && user?.urlPhoto == null
-                            ? Text(
-                          (user?.name.isNotEmpty == true)
-                              ? user!.name[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                              fontSize: 36,
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.bold),
-                        )
-                            : null,
+                        child: ClipOval(
+                          child: SizedBox(
+                            width: 108, // radius * 2
+                            height: 108,
+                            child: _previewBytes != null
+                                ? Image.memory(
+                              _previewBytes!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildInitial(user, colorScheme),
+                            )
+                                : user?.urlPhoto != null
+                                ? Image.network(
+                              user!.urlPhoto!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildInitial(user, colorScheme),
+                            )
+                                : _buildInitial(user, colorScheme),
+                          ),
+                        ),
                       ),
                       Positioned(
                         bottom: 0,
